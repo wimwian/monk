@@ -2,13 +2,11 @@ use monk::*;
 
 #[test]
 fn test_find_all_path_configs_simple() {
-    let yaml = r#"
-pre-commit:
-  commands:
-    - cargo fmt
-    - cargo clippy
+    let toml = r#"
+[pre-commit]
+commands = ["cargo fmt", "cargo clippy"]
 "#;
-    let config: Config = serde_yaml::from_str(yaml).unwrap();
+    let config: Config = toml::from_str(toml).unwrap();
     let hooks = find_all_path_configs(&config, "pre-commit");
     assert_eq!(hooks.len(), 1);
     assert_eq!(hooks[0].commands.len(), 2);
@@ -16,23 +14,18 @@ pre-commit:
 
 #[test]
 fn test_find_all_path_configs_path_based() {
-    let yaml = r#"
-pre-commit:
-  paths:
-    "frontend/":
-      commands:
-        - npm run lint
-        - npm test
-    "backend/":
-      commands:
-        - cargo fmt -- --check
-        - cargo clippy
-      working_directory: "backend"
-    "docs/":
-      commands:
-        - mdbook test
+    let toml = r#"
+[pre-commit.paths."frontend/"]
+commands = ["npm run lint", "npm test"]
+
+[pre-commit.paths."backend/"]
+commands = ["cargo fmt -- --check", "cargo clippy"]
+working_directory = "backend"
+
+[pre-commit.paths."docs/"]
+commands = ["mdbook test"]
 "#;
-    let config: Config = serde_yaml::from_str(yaml).unwrap();
+    let config: Config = toml::from_str(toml).unwrap();
     let hooks = find_all_path_configs(&config, "pre-commit");
     assert_eq!(hooks.len(), 3);
 
@@ -46,32 +39,28 @@ pre-commit:
 
 #[test]
 fn test_find_all_path_configs_nonexistent_hook() {
-    let yaml = r#"
-pre-commit:
-  commands:
-    - cargo fmt
+    let toml = r#"
+[pre-commit]
+commands = ["cargo fmt"]
 "#;
-    let config: Config = serde_yaml::from_str(yaml).unwrap();
+    let config: Config = toml::from_str(toml).unwrap();
     let hooks = find_all_path_configs(&config, "pre-push");
     assert_eq!(hooks.len(), 0);
 }
 
 #[test]
 fn test_find_all_vs_matching_path_configs() {
-    let yaml = r#"
-pre-commit:
-  paths:
-    "frontend/":
-      commands:
-        - npm run lint
-    "backend/":
-      commands:
-        - cargo fmt
-    "docs/":
-      commands:
-        - mdbook test
+    let toml = r#"
+[pre-commit.paths."frontend/"]
+commands = ["npm run lint"]
+
+[pre-commit.paths."backend/"]
+commands = ["cargo fmt"]
+
+[pre-commit.paths."docs/"]
+commands = ["mdbook test"]
 "#;
-    let config: Config = serde_yaml::from_str(yaml).unwrap();
+    let config: Config = toml::from_str(toml).unwrap();
 
     let all_hooks = find_all_path_configs(&config, "pre-commit");
     assert_eq!(all_hooks.len(), 3);
@@ -89,14 +78,13 @@ pre-commit:
 fn test_config_reading_success() {
     let temp_dir = std::env::temp_dir().join("monk_test_success");
     std::fs::create_dir_all(&temp_dir).unwrap();
-    let config_path = temp_dir.join("monk.yaml");
+    let config_path = temp_dir.join("monk.toml");
 
-    let yaml_content = r#"
-pre-commit:
-  commands:
-    - echo "test"
+    let toml_content = r#"
+[pre-commit]
+commands = ["echo \"test\""]
 "#;
-    std::fs::write(&config_path, yaml_content).unwrap();
+    std::fs::write(&config_path, toml_content).unwrap();
 
     let original_dir = std::env::current_dir().unwrap();
     std::env::set_current_dir(&temp_dir).unwrap();
@@ -120,6 +108,59 @@ fn test_config_reading_failure() {
 
     let result = read_config();
     assert!(result.is_err());
+    let message = result.unwrap_err().to_string();
+    assert!(!message.to_lowercase().contains("yaml"));
+
+    std::env::set_current_dir(original_dir).unwrap();
+    std::fs::remove_dir_all(temp_dir).unwrap();
+}
+
+#[test]
+fn test_config_reading_legacy_yaml_only_gives_helpful_error() {
+    let temp_dir = std::env::temp_dir().join("monk_test_legacy_yaml");
+    std::fs::create_dir_all(&temp_dir).unwrap();
+    std::fs::write(
+        temp_dir.join("monk.yaml"),
+        "pre-commit:\n  commands:\n    - echo test\n",
+    )
+    .unwrap();
+
+    let original_dir = std::env::current_dir().unwrap();
+    std::env::set_current_dir(&temp_dir).unwrap();
+
+    let result = read_config();
+    assert!(result.is_err());
+    let message = result.unwrap_err().to_string();
+    assert!(message.contains("monk.yaml"));
+    assert!(message.contains("monk.toml"));
+
+    std::env::set_current_dir(original_dir).unwrap();
+    std::fs::remove_dir_all(temp_dir).unwrap();
+}
+
+#[test]
+fn test_config_reading_legacy_local_yaml_gives_helpful_error() {
+    let temp_dir = std::env::temp_dir().join("monk_test_legacy_local_yaml");
+    std::fs::create_dir_all(&temp_dir).unwrap();
+    std::fs::write(
+        temp_dir.join("monk.toml"),
+        "[pre-commit.commands.fmt]\nrun = \"cargo fmt\"\n",
+    )
+    .unwrap();
+    std::fs::write(
+        temp_dir.join("monk-local.yaml"),
+        "pre-commit:\n  parallel: true\n",
+    )
+    .unwrap();
+
+    let original_dir = std::env::current_dir().unwrap();
+    std::env::set_current_dir(&temp_dir).unwrap();
+
+    let result = read_config();
+    assert!(result.is_err());
+    let message = result.unwrap_err().to_string();
+    assert!(message.contains("monk-local.yaml"));
+    assert!(message.contains("monk-local.toml"));
 
     std::env::set_current_dir(original_dir).unwrap();
     std::fs::remove_dir_all(temp_dir).unwrap();
@@ -127,19 +168,16 @@ fn test_config_reading_failure() {
 
 #[test]
 fn test_working_directory_configuration() {
-    let yaml = r#"
-pre-commit:
-  paths:
-    "api/":
-      commands:
-        - cargo test
-      working_directory: "api"
-    "frontend/":
-      commands:
-        - npm test
-      working_directory: "frontend"
+    let toml = r#"
+[pre-commit.paths."api/"]
+commands = ["cargo test"]
+working_directory = "api"
+
+[pre-commit.paths."frontend/"]
+commands = ["npm test"]
+working_directory = "frontend"
 "#;
-    let config: Config = serde_yaml::from_str(yaml).unwrap();
+    let config: Config = toml::from_str(toml).unwrap();
     let hooks = find_all_path_configs(&config, "pre-commit");
 
     assert_eq!(hooks.len(), 2);

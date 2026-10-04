@@ -1,0 +1,8 @@
+[pre-commit.commands.fmt]
+run = "cargo fmt -- --check"
+
+[pre-commit.commands.clippy]
+run = "cargo clippy -- -D warnings"
+
+[pre-push.commands.test]
+run = "cargo test"

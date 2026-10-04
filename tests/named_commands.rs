@@ -2,15 +2,14 @@ use monk::*;
 
 #[test]
 fn test_named_commands_simple() {
-    let yaml = r#"
-pre-commit:
-  commands:
-    fmt:
-      run: cargo fmt -- --check
-    clippy:
-      run: cargo clippy -- -D warnings
+    let toml = r#"
+[pre-commit.commands.fmt]
+run = "cargo fmt -- --check"
+
+[pre-commit.commands.clippy]
+run = "cargo clippy -- -D warnings"
 "#;
-    let config: Config = serde_yaml::from_str(yaml).unwrap();
+    let config: Config = toml::from_str(toml).unwrap();
     let hooks = find_all_path_configs(&config, "pre-commit");
     assert_eq!(hooks.len(), 1);
     assert_eq!(hooks[0].commands.len(), 2);
@@ -24,22 +23,20 @@ pre-commit:
 
 #[test]
 fn test_named_commands_path_based() {
-    let yaml = r#"
-pre-commit:
-  paths:
-    "frontend/":
-      commands:
-        lint:
-          run: npm run lint
-        typecheck:
-          run: npx tsc --noEmit
-    "backend/":
-      commands:
-        fmt:
-          run: cargo fmt -- --check
-      working_directory: "backend"
+    let toml = r#"
+[pre-commit.paths."frontend/".commands.lint]
+run = "npm run lint"
+
+[pre-commit.paths."frontend/".commands.typecheck]
+run = "npx tsc --noEmit"
+
+[pre-commit.paths."backend/"]
+working_directory = "backend"
+
+[pre-commit.paths."backend/".commands.fmt]
+run = "cargo fmt -- --check"
 "#;
-    let config: Config = serde_yaml::from_str(yaml).unwrap();
+    let config: Config = toml::from_str(toml).unwrap();
 
     let frontend_files = vec!["frontend/index.ts".to_string()];
     let hooks = find_matching_path_configs(&config, "pre-commit", &frontend_files);
@@ -63,19 +60,17 @@ pre-commit:
 
 #[test]
 fn test_mixed_hooks_different_formats() {
-    let yaml = r#"
-pre-commit:
-  commands:
-    - cargo fmt -- --check
-    - cargo clippy
-pre-push:
-  commands:
-    test:
-      run: cargo test
-    integration:
-      run: cargo test --test integration
+    let toml = r#"
+[pre-commit]
+commands = ["cargo fmt -- --check", "cargo clippy"]
+
+[pre-push.commands.test]
+run = "cargo test"
+
+[pre-push.commands.integration]
+run = "cargo test --test integration"
 "#;
-    let config: Config = serde_yaml::from_str(yaml).unwrap();
+    let config: Config = toml::from_str(toml).unwrap();
 
     let pre_commit_hooks = find_all_path_configs(&config, "pre-commit");
     assert_eq!(pre_commit_hooks.len(), 1);
@@ -100,14 +95,11 @@ pre-push:
 
 #[test]
 fn test_legacy_auto_generated_names() {
-    let yaml = r#"
-pre-commit:
-  commands:
-    - echo first
-    - echo second
-    - echo third
+    let toml = r#"
+[pre-commit]
+commands = ["echo first", "echo second", "echo third"]
 "#;
-    let config: Config = serde_yaml::from_str(yaml).unwrap();
+    let config: Config = toml::from_str(toml).unwrap();
     let hooks = find_all_path_configs(&config, "pre-commit");
     assert_eq!(hooks.len(), 1);
 
@@ -124,17 +116,16 @@ pre-commit:
 
 #[test]
 fn test_named_commands_with_command_level_working_directory() {
-    let yaml = r#"
-pre-commit:
-  commands:
-    frontend_lint:
-      run: npm run lint
-      working_directory: frontend
-    backend_test:
-      run: cargo test
-      working_directory: backend
+    let toml = r#"
+[pre-commit.commands.frontend_lint]
+run = "npm run lint"
+working_directory = "frontend"
+
+[pre-commit.commands.backend_test]
+run = "cargo test"
+working_directory = "backend"
 "#;
-    let config: Config = serde_yaml::from_str(yaml).unwrap();
+    let config: Config = toml::from_str(toml).unwrap();
     let hooks = find_all_path_configs(&config, "pre-commit");
     assert_eq!(hooks.len(), 1);
 
@@ -149,17 +140,17 @@ pre-commit:
 
 #[test]
 fn test_named_commands_preserve_order() {
-    let yaml = r#"
-pre-commit:
-  commands:
-    ztest:
-      run: echo z
-    aformat:
-      run: echo a
-    mlint:
-      run: echo m
+    let toml = r#"
+[pre-commit.commands.ztest]
+run = "echo z"
+
+[pre-commit.commands.aformat]
+run = "echo a"
+
+[pre-commit.commands.mlint]
+run = "echo m"
 "#;
-    let config: Config = serde_yaml::from_str(yaml).unwrap();
+    let config: Config = toml::from_str(toml).unwrap();
     let hooks = find_all_path_configs(&config, "pre-commit");
 
     let command_names: Vec<&String> = hooks[0].commands.keys().collect();
@@ -168,13 +159,11 @@ pre-commit:
 
 #[test]
 fn test_single_named_command() {
-    let yaml = r#"
-commit-msg:
-  commands:
-    validate:
-      run: ./scripts/check-commit-msg.sh
+    let toml = r#"
+[commit-msg.commands.validate]
+run = "./scripts/check-commit-msg.sh"
 "#;
-    let config: Config = serde_yaml::from_str(yaml).unwrap();
+    let config: Config = toml::from_str(toml).unwrap();
     let hooks = find_all_path_configs(&config, "commit-msg");
     assert_eq!(hooks.len(), 1);
     assert_eq!(hooks[0].commands.len(), 1);

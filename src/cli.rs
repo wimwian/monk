@@ -5,41 +5,33 @@ use clap::{Parser, Subcommand};
     name = "monk",
     about = "Monk - Simple Git hooks manager",
     long_about = "Monk is a simple and powerful Git hooks manager written in Rust.
-It allows you to manage and automate Git hooks easily using a YAML configuration file.
+It allows you to manage and automate Git hooks easily using a TOML configuration file.
 
 Examples:
-  monk install              Install all hooks from monk.yaml
+  monk install              Install all hooks from monk.toml
   monk run pre-commit       Run pre-commit hook manually
   monk uninstall            Remove all monk hooks and restore backups
 
 Configuration:
-  Create a monk.yaml file in your project root with your hook definitions.
+  Create a monk.toml file in your project root with your hook definitions.
 
   Named commands (recommended):
-    pre-commit:
-      commands:
-        fmt:
-          run: cargo fmt -- --check
-        clippy:
-          run: cargo clippy
+    [pre-commit.commands.fmt]
+    run = \"cargo fmt -- --check\"
+
+    [pre-commit.commands.clippy]
+    run = \"cargo clippy\"
 
   Simple commands:
-    pre-commit:
-      commands:
-        - cargo fmt -- --check
-        - cargo clippy
+    [pre-commit]
+    commands = [\"cargo fmt -- --check\", \"cargo clippy\"]
 
   Path-based hooks:
-    pre-commit:
-      paths:
-        src/:
-          commands:
-            fmt:
-              run: cargo fmt -- --check
-        docs/:
-          commands:
-            test:
-              run: mdbook test
+    [pre-commit.paths.\"src/\".commands.fmt]
+    run = \"cargo fmt -- --check\"
+
+    [pre-commit.paths.\"docs/\".commands.test]
+    run = \"mdbook test\"
 
 For more examples and documentation, visit: https://github.com/daynin/monk",
     version
@@ -51,7 +43,7 @@ pub struct Cli {
 
 #[derive(Subcommand)]
 pub enum Commands {
-    #[command(about = "Install all Git hooks from monk.yaml")]
+    #[command(about = "Install all Git hooks from monk.toml")]
     Install,
     #[command(about = "Run a specific hook manually")]
     Run {
