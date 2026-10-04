@@ -9,6 +9,16 @@ fn find_config_file(base_name: &str) -> Option<String> {
     Path::new(&path).exists().then_some(path)
 }
 
+fn find_legacy_yaml(base_name: &str) -> Option<String> {
+    for extension in [".yaml", ".yml"] {
+        let path = format!("{base_name}{extension}");
+        if Path::new(&path).exists() {
+            return Some(path);
+        }
+    }
+    None
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub enum SkipCondition {
     Merge,
@@ -177,8 +187,8 @@ fn deep_merge_toml(base: toml::Value, local: toml::Value) -> toml::Value {
     match (base, local) {
         (toml::Value::Table(mut base_map), toml::Value::Table(local_map)) => {
             for (key, local_value) in local_map {
-                let merged = match base_map.remove(&key) {
-                    Some(base_value) => deep_merge_toml(base_value, local_value),
+                let merged = match base_map.get(&key) {
+                    Some(base_value) => deep_merge_toml(base_value.clone(), local_value),
                     None => local_value,
                 };
                 base_map.insert(key, merged);
@@ -197,12 +207,12 @@ fn merge_top_level_toml(base: toml::Value, local: toml::Value) -> toml::Value {
     match (base, local) {
         (toml::Value::Table(mut base_map), toml::Value::Table(local_map)) => {
             for (key, local_value) in local_map {
-                let merged = match base_map.remove(&key) {
+                let merged = match base_map.get(&key) {
                     Some(base_value) => {
-                        if is_hook_variant_change(&base_value, &local_value) {
+                        if is_hook_variant_change(base_value, &local_value) {
                             local_value
                         } else {
-                            deep_merge_toml(base_value, local_value)
+                            deep_merge_toml(base_value.clone(), local_value)
                         }
                     }
                     None => local_value,
@@ -230,12 +240,30 @@ pub fn merge_toml_configs(
 }
 
 pub fn read_config() -> Result<Config, Box<dyn std::error::Error>> {
-    let config_path = find_config_file("monk").ok_or("No monk.toml found")?;
+    let config_path = match find_config_file("monk") {
+        Some(path) => path,
+        None => {
+            if let Some(legacy) = find_legacy_yaml("monk") {
+                return Err(format!(
+                    "{legacy} found, but monk no longer supports YAML config. Convert it to monk.toml."
+                )
+                .into());
+            }
+            return Err("No monk.toml found".into());
+        }
+    };
     let config_content = fs::read_to_string(&config_path)?;
 
     if let Some(local_path) = find_config_file("monk-local") {
         let local_content = fs::read_to_string(&local_path)?;
         return merge_toml_configs(&config_content, &local_content);
+    }
+
+    if let Some(legacy_local) = find_legacy_yaml("monk-local") {
+        return Err(format!(
+            "{legacy_local} found, but monk no longer supports YAML config. Convert it to monk-local.toml."
+        )
+        .into());
     }
 
     Ok(toml::from_str(&config_content)?)
@@ -741,6 +769,52 @@ run = "cargo clippy"
         } else {
             panic!("Expected Simple hook config");
         }
+    }
+
+    #[test]
+    fn test_merge_overridden_command_keeps_declared_position() {
+        let merged = merge(
+            r#"
+[pre-commit.commands.fmt]
+run = "cargo fmt -- --check"
+
+[pre-commit.commands.clippy]
+run = "cargo clippy -- -D warnings"
+
+[pre-commit.commands.test]
+run = "cargo test"
+"#,
+            r#"
+[pre-commit.commands.fmt]
+run = "cargo fmt"
+"#,
+        );
+        if let HookConfig::Simple(hook) = merged.hooks.get("pre-commit").unwrap() {
+            let names: Vec<&String> = hook.commands.keys().collect();
+            assert_eq!(names, vec!["fmt", "clippy", "test"]);
+            assert_eq!(hook.commands.get("fmt").unwrap().run, "cargo fmt");
+        } else {
+            panic!("Expected Simple hook config");
+        }
+    }
+
+    #[test]
+    fn test_merge_overridden_hook_keeps_declared_position() {
+        let merged = merge(
+            r#"
+[pre-commit.commands.fmt]
+run = "cargo fmt"
+
+[pre-push.commands.test]
+run = "cargo test"
+"#,
+            r#"
+[pre-commit]
+parallel = true
+"#,
+        );
+        let names: Vec<&String> = merged.hooks.keys().collect();
+        assert_eq!(names, vec!["pre-commit", "pre-push"]);
     }
 
     #[test]

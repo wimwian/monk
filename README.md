@@ -86,6 +86,8 @@ monk install
 
 If you added monk as a build dependency with `build.rs` (see above), hooks are installed automatically when you build your project.
 
+> **Upgrading from an older monk?** `monk.yaml` and `monk-local.yaml` are no longer read. Convert them to `monk.toml` / `monk-local.toml` using the syntax below — monk will tell you if it finds a leftover YAML file instead of silently ignoring it.
+
 ---
 
 ### Documentation
@@ -224,7 +226,7 @@ run = "cargo test"
 
 #### Parallel Execution
 
-Run all commands in a hook concurrently with `parallel: true`:
+Run all commands in a hook concurrently with `parallel = true`:
 
 ```toml
 [pre-commit]
@@ -244,7 +246,7 @@ All commands run simultaneously and their output is buffered. A summary with pas
 
 #### Piped Execution
 
-Run commands sequentially in priority order with `piped: true`:
+Run commands sequentially in priority order with `piped = true`:
 
 ```toml
 [pre-commit]
@@ -265,7 +267,7 @@ priority = 3
 
 Commands are sorted by `priority` (lower number runs first). Commands without `priority` run after prioritized ones, in their original definition order. If any command fails, execution stops and the hook fails.
 
-Add `follow: true` to continue running all commands even when one fails:
+Add `follow = true` to continue running all commands even when one fails:
 
 ```toml
 [post-merge]
@@ -281,7 +283,7 @@ run = "bundle exec rails db:migrate"
 priority = 2
 ```
 
-With `follow: true`, all commands run regardless of failures and a summary with pass/fail status is printed at the end. If any command failed, the hook fails.
+With `follow = true`, all commands run regardless of failures and a summary with pass/fail status is printed at the end. If any command failed, the hook fails.
 
 When both `piped` and `parallel` are set, `piped` takes precedence.
 
@@ -313,8 +315,8 @@ skip = [{ ref = "release/*" }]
 |---|---|
 | `merge` | A merge is in progress (`.git/MERGE_HEAD` exists) |
 | `rebase` | A rebase is in progress |
-| `ref: <pattern>` | Current branch matches the pattern (supports globs like `release/*`) |
-| `run: <command>` | Shell command exits with code 0 |
+| `{ ref = "<pattern>" }` | Current branch matches the pattern (supports globs like `release/*`) |
+| `{ run = "<command>" }` | Shell command exits with code 0 |
 
 Skip accepts a single condition or a list. If any condition matches, the hook or command is skipped.
 
@@ -330,7 +332,7 @@ run = "cargo test"
 required = true
 ```
 
-A `required` command still runs when `MONK=0` is set, and when the global disable is active, only `required` hooks and commands run — everything else is skipped. Setting `required: true` on a hook itself makes the whole hook (including its own `skip` conditions) immune to `MONK=0`.
+A `required` command still runs when `MONK=0` is set, and when the global disable is active, only `required` hooks and commands run — everything else is skipped. Setting `required = true` on a hook itself makes the whole hook (including its own `skip` conditions) immune to `MONK=0`.
 
 This is a client-side convenience, not a security boundary: anyone with shell access to the repository can still bypass it by editing the config, unsetting `MONK`, or running `git commit --no-verify` (which skips the installed hook script entirely, a Git behavior monk cannot override). Enforce genuinely non-bypassable rules server-side, e.g. via required CI checks or branch protection.
 
@@ -371,7 +373,7 @@ run = "npm test"
 
 The RC file is sourced via `. <path> && <command>` (POSIX-compatible dot-source). This is useful for shell-managed toolchains like nvm, rbenv, or pyenv that require shell initialization before tools are available.
 
-The `rc` path is relative to the project root. RC also applies to `skip: run:` shell conditions.
+The `rc` path is relative to the project root. RC also applies to `{ run = "..." }` skip conditions.
 
 #### Local Config Overrides
 

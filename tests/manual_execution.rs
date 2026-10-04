@@ -108,6 +108,59 @@ fn test_config_reading_failure() {
 
     let result = read_config();
     assert!(result.is_err());
+    let message = result.unwrap_err().to_string();
+    assert!(!message.to_lowercase().contains("yaml"));
+
+    std::env::set_current_dir(original_dir).unwrap();
+    std::fs::remove_dir_all(temp_dir).unwrap();
+}
+
+#[test]
+fn test_config_reading_legacy_yaml_only_gives_helpful_error() {
+    let temp_dir = std::env::temp_dir().join("monk_test_legacy_yaml");
+    std::fs::create_dir_all(&temp_dir).unwrap();
+    std::fs::write(
+        temp_dir.join("monk.yaml"),
+        "pre-commit:\n  commands:\n    - echo test\n",
+    )
+    .unwrap();
+
+    let original_dir = std::env::current_dir().unwrap();
+    std::env::set_current_dir(&temp_dir).unwrap();
+
+    let result = read_config();
+    assert!(result.is_err());
+    let message = result.unwrap_err().to_string();
+    assert!(message.contains("monk.yaml"));
+    assert!(message.contains("monk.toml"));
+
+    std::env::set_current_dir(original_dir).unwrap();
+    std::fs::remove_dir_all(temp_dir).unwrap();
+}
+
+#[test]
+fn test_config_reading_legacy_local_yaml_gives_helpful_error() {
+    let temp_dir = std::env::temp_dir().join("monk_test_legacy_local_yaml");
+    std::fs::create_dir_all(&temp_dir).unwrap();
+    std::fs::write(
+        temp_dir.join("monk.toml"),
+        "[pre-commit.commands.fmt]\nrun = \"cargo fmt\"\n",
+    )
+    .unwrap();
+    std::fs::write(
+        temp_dir.join("monk-local.yaml"),
+        "pre-commit:\n  parallel: true\n",
+    )
+    .unwrap();
+
+    let original_dir = std::env::current_dir().unwrap();
+    std::env::set_current_dir(&temp_dir).unwrap();
+
+    let result = read_config();
+    assert!(result.is_err());
+    let message = result.unwrap_err().to_string();
+    assert!(message.contains("monk-local.yaml"));
+    assert!(message.contains("monk-local.toml"));
 
     std::env::set_current_dir(original_dir).unwrap();
     std::fs::remove_dir_all(temp_dir).unwrap();
