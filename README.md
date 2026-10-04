@@ -349,6 +349,22 @@ Skip accepts a single condition or a list. If any condition matches, the hook or
 
 To disable all hooks globally, set the environment variable `MONK=0`.
 
+#### Required Hooks and Commands
+
+Mark a hook or command as `required` to make it ignore `MONK=0` and its own `skip` conditions:
+
+```yaml
+pre-push:
+  commands:
+    test:
+      run: cargo test
+      required: true
+```
+
+A `required` command still runs when `MONK=0` is set, and when the global disable is active, only `required` hooks and commands run — everything else is skipped. Setting `required: true` on a hook itself makes the whole hook (including its own `skip` conditions) immune to `MONK=0`.
+
+This is a client-side convenience, not a security boundary: anyone with shell access to the repository can still bypass it by editing the config, unsetting `MONK`, or running `git commit --no-verify` (which skips the installed hook script entirely, a Git behavior monk cannot override). Enforce genuinely non-bypassable rules server-side, e.g. via required CI checks or branch protection.
+
 #### Environment Variables
 
 Set environment variables for specific commands using the `env` key:

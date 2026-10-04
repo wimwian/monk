@@ -302,6 +302,10 @@ fn should_skip(conditions: &[SkipCondition], rc_file: Option<&str>) -> bool {
         .any(|condition| evaluate_skip_condition(condition, rc_file))
 }
 
+fn hook_is_required(hook: &Hook) -> bool {
+    hook.required || hook.commands.values().any(|command| command.required)
+}
+
 fn skip_reason(conditions: &[SkipCondition], rc_file: Option<&str>) -> String {
     for condition in conditions {
         if evaluate_skip_condition(condition, rc_file) {
@@ -316,11 +320,25 @@ fn skip_reason(conditions: &[SkipCondition], rc_file: Option<&str>) -> String {
     "skip".to_string()
 }
 
-fn prepare_commands(hook: &Hook, rc_file: Option<&str>) -> Vec<PreparedCommand> {
+fn prepare_commands(
+    hook: &Hook,
+    rc_file: Option<&str>,
+    monk_disabled: bool,
+) -> Vec<PreparedCommand> {
     let mut prepared = Vec::new();
 
     for (command_name, command) in &hook.commands {
-        if should_skip(&command.skip, rc_file) {
+        if monk_disabled && !command.required {
+            println!(
+                "{} {} {}",
+                WRENCH,
+                command_name.cyan().bold(),
+                "(skip: MONK=0)".yellow()
+            );
+            continue;
+        }
+
+        if !command.required && should_skip(&command.skip, rc_file) {
             let reason = skip_reason(&command.skip, rc_file);
             println!(
                 "{} {} {}",
@@ -584,11 +602,6 @@ fn print_parallel_summary(results: &[CommandResult]) {
 }
 
 pub fn run_hook(config: &Config, hook_name: &str, changed_only: bool) {
-    if std::env::var("MONK").as_deref() == Ok("0") {
-        println!("{} Skipping all hooks {}", SKIP, "(MONK=0)".yellow());
-        return;
-    }
-
     let changed_files = get_changed_files();
 
     let matching_hooks = if changed_only && !changed_files.is_empty() {
@@ -597,7 +610,13 @@ pub fn run_hook(config: &Config, hook_name: &str, changed_only: bool) {
         find_all_path_configs(config, hook_name)
     };
 
+    let monk_disabled = std::env::var("MONK").as_deref() == Ok("0");
+
     if matching_hooks.is_empty() {
+        if monk_disabled {
+            println!("{} Skipping all hooks {}", SKIP, "(MONK=0)".yellow());
+            return;
+        }
         println!(
             "{} No commands defined for hook '{}'",
             CROSS,
@@ -606,12 +625,29 @@ pub fn run_hook(config: &Config, hook_name: &str, changed_only: bool) {
         std::process::exit(1);
     }
 
+    let has_required = matching_hooks.iter().any(|hook| hook_is_required(hook));
+
+    if monk_disabled && !has_required {
+        println!("{} Skipping all hooks {}", SKIP, "(MONK=0)".yellow());
+        return;
+    }
+
     println!("{} Running {} hook", ROCKET, hook_name.cyan().bold());
 
     let rc_file = config.rc.as_deref();
 
     for hook in matching_hooks {
-        if should_skip(&hook.skip, rc_file) {
+        if monk_disabled && !hook_is_required(hook) {
+            println!(
+                "{} Skipping {} {}",
+                SKIP,
+                hook_name.cyan().bold(),
+                "(MONK=0)".yellow()
+            );
+            continue;
+        }
+
+        if !hook.required && should_skip(&hook.skip, rc_file) {
             let reason = skip_reason(&hook.skip, rc_file);
             println!(
                 "{} Skipping {} {}",
@@ -626,7 +662,7 @@ pub fn run_hook(config: &Config, hook_name: &str, changed_only: bool) {
             println!("{} {}", FOLDER, working_dir.blue().bold());
         }
 
-        let mut prepared = prepare_commands(hook, rc_file);
+        let mut prepared = prepare_commands(hook, rc_file, monk_disabled);
 
         let results = if hook.piped {
             sort_by_priority(&mut prepared);
@@ -754,6 +790,90 @@ mod tests {
             .map(|batch| batch.strip_prefix("eslint ").unwrap().split(' ').count())
             .sum();
         assert_eq!(total_files, 5000);
+    }
+
+    #[test]
+    fn test_hook_is_required_false_by_default() {
+        let yaml = r#"
+commands:
+  fmt:
+    run: cargo fmt -- --check
+"#;
+        let hook: Hook = serde_yaml::from_str(yaml).unwrap();
+        assert!(!hook_is_required(&hook));
+    }
+
+    #[test]
+    fn test_hook_is_required_via_hook_flag() {
+        let yaml = r#"
+required: true
+commands:
+  fmt:
+    run: cargo fmt -- --check
+"#;
+        let hook: Hook = serde_yaml::from_str(yaml).unwrap();
+        assert!(hook_is_required(&hook));
+    }
+
+    #[test]
+    fn test_hook_is_required_via_command_flag() {
+        let yaml = r#"
+commands:
+  fmt:
+    run: cargo fmt -- --check
+    required: true
+  clippy:
+    run: cargo clippy -- -D warnings
+"#;
+        let hook: Hook = serde_yaml::from_str(yaml).unwrap();
+        assert!(hook_is_required(&hook));
+    }
+
+    #[test]
+    fn test_prepare_commands_skips_non_required_when_monk_disabled() {
+        let yaml = r#"
+commands:
+  fmt:
+    run: cargo fmt -- --check
+  test:
+    run: cargo test
+    required: true
+"#;
+        let hook: Hook = serde_yaml::from_str(yaml).unwrap();
+        let prepared = prepare_commands(&hook, None, true);
+        assert_eq!(prepared.len(), 1);
+        assert_eq!(prepared[0].command_name, "test");
+    }
+
+    #[test]
+    fn test_prepare_commands_runs_all_when_monk_enabled() {
+        let yaml = r#"
+commands:
+  fmt:
+    run: cargo fmt -- --check
+  test:
+    run: cargo test
+    required: true
+"#;
+        let hook: Hook = serde_yaml::from_str(yaml).unwrap();
+        let prepared = prepare_commands(&hook, None, false);
+        assert_eq!(prepared.len(), 2);
+    }
+
+    #[test]
+    fn test_prepare_commands_required_command_ignores_own_skip() {
+        let yaml = r#"
+commands:
+  test:
+    run: cargo test
+    required: true
+    skip:
+      - run: "true"
+"#;
+        let hook: Hook = serde_yaml::from_str(yaml).unwrap();
+        let prepared = prepare_commands(&hook, None, false);
+        assert_eq!(prepared.len(), 1);
+        assert_eq!(prepared[0].command_name, "test");
     }
 
     #[test]

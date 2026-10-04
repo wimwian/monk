@@ -121,6 +121,8 @@ pub struct Hook {
     pub follow: bool,
     #[serde(default, deserialize_with = "deserialize_skip_conditions")]
     pub skip: Vec<SkipCondition>,
+    #[serde(default)]
+    pub required: bool,
 }
 
 #[derive(Deserialize, Debug, Clone)]
@@ -138,6 +140,8 @@ pub struct Command {
     pub priority: Option<u32>,
     #[serde(default)]
     pub env: IndexMap<String, String>,
+    #[serde(default)]
+    pub required: bool,
 }
 
 #[derive(Deserialize)]
@@ -185,6 +189,7 @@ where
                         skip: Vec::new(),
                         priority: None,
                         env: IndexMap::new(),
+                        required: false,
                     };
                     (name, command)
                 })
@@ -1466,6 +1471,60 @@ pre-commit:
         );
         if let HookConfig::Simple(hook) = config.hooks.get("pre-commit").unwrap() {
             assert!(hook.commands.get("fmt").unwrap().env.is_empty());
+        } else {
+            panic!("Expected Simple hook config");
+        }
+    }
+
+    #[test]
+    fn test_command_required_defaults_to_false() {
+        let config = parse_config(
+            r#"
+pre-commit:
+  commands:
+    fmt:
+      run: cargo fmt
+"#,
+        );
+        if let HookConfig::Simple(hook) = config.hooks.get("pre-commit").unwrap() {
+            assert!(!hook.required);
+            assert!(!hook.commands.get("fmt").unwrap().required);
+        } else {
+            panic!("Expected Simple hook config");
+        }
+    }
+
+    #[test]
+    fn test_command_and_hook_required_true() {
+        let config = parse_config(
+            r#"
+pre-commit:
+  required: true
+  commands:
+    test:
+      run: cargo test
+      required: true
+"#,
+        );
+        if let HookConfig::Simple(hook) = config.hooks.get("pre-commit").unwrap() {
+            assert!(hook.required);
+            assert!(hook.commands.get("test").unwrap().required);
+        } else {
+            panic!("Expected Simple hook config");
+        }
+    }
+
+    #[test]
+    fn test_toml_command_required_true() {
+        let config = parse_toml(
+            r#"
+[pre-push.commands.test]
+run = "cargo test"
+required = true
+"#,
+        );
+        if let HookConfig::Simple(hook) = config.hooks.get("pre-push").unwrap() {
+            assert!(hook.commands.get("test").unwrap().required);
         } else {
             panic!("Expected Simple hook config");
         }
