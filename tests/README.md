@@ -13,8 +13,8 @@ This directory contains integration tests for the monk Git hooks manager.
 - `glob_filtering.rs` - Tests for `glob:` and `exclude:` file filtering on commands
 - `parallel_execution.rs` - Tests for `parallel: true` hook-level parallel execution
 - `skip_conditions.rs` - Tests for `skip:` conditions on hooks and commands (merge, rebase, ref, run)
-- `local_config.rs` - Tests for `monk-local.yaml` config overrides and deep-merge behavior
-- `toml_config.rs` - Tests for `monk.toml` TOML configuration format and cross-format merging
+- `local_config.rs` - Tests for `monk-local.toml` config overrides and deep-merge behavior
+- `toml_config.rs` - Tests for advanced TOML configuration shapes (path-based, working_directory, inline-table skip conditions)
 - `piped_execution.rs` - Tests for `piped: true` sequential priority-ordered execution with `follow:` and `priority:`
 - `env_rc.rs` - Tests for `env:` command-level environment variables and top-level `rc:` shell initialization
 

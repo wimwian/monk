@@ -58,27 +58,24 @@ pub fn main() {
 }
 ```
 
-In this case, `monk` will be installed automatically and will initialize all hooks from `monk.yaml`
+In this case, `monk` will be installed automatically and will initialize all hooks from `monk.toml`
 .
 This is the most convenient option for Rust projects, as it doesn't require contributors to install `monk` manually.
 
 
 ### Usage
 
-Create a configuration file named `monk.yaml` (or `monk.toml`) in your project root:
+Create a configuration file named `monk.toml` in your project root:
 
-```yaml
-pre-commit:
-  commands:
-    fmt:
-      run: cargo fmt -- --check
-    clippy:
-      run: cargo clippy -- -D warnings
+```toml
+[pre-commit.commands.fmt]
+run = "cargo fmt -- --check"
 
-pre-push:
-  commands:
-    test:
-      run: cargo test
+[pre-commit.commands.clippy]
+run = "cargo clippy -- -D warnings"
+
+[pre-push.commands.test]
+run = "cargo test"
 ```
 
 Then install the hooks:
@@ -97,15 +94,15 @@ If you added monk as a build dependency with `build.rs` (see above), hooks are i
 
 Each command has a name and a `run` field:
 
-```yaml
-pre-commit:
-  commands:
-    fmt:
-      run: cargo fmt -- --check
-    clippy:
-      run: cargo clippy -- -D warnings
-    test:
-      run: cargo test
+```toml
+[pre-commit.commands.fmt]
+run = "cargo fmt -- --check"
+
+[pre-commit.commands.clippy]
+run = "cargo clippy -- -D warnings"
+
+[pre-commit.commands.test]
+run = "cargo test"
 ```
 
 Commands run in the order they are defined. If any command fails, execution stops and the hook fails.
@@ -113,13 +110,11 @@ Commands run in the order they are defined. If any command fails, execution stop
 <details>
 <summary>Legacy format (backward compatible)</summary>
 
-Plain string arrays still work:
+A plain array of strings still works:
 
-```yaml
-pre-commit:
-  commands:
-    - cargo fmt -- --check
-    - cargo clippy -- -D warnings
+```toml
+[pre-commit]
+commands = ["cargo fmt -- --check", "cargo clippy -- -D warnings"]
 ```
 
 Commands are auto-named `cmd1`, `cmd2`, etc. The named format is recommended for new configs.
@@ -136,18 +131,15 @@ Use placeholders to pass file lists to your tools:
 | `{push_files}` | Files changed between local and remote |
 | `{all_files}` | All tracked files in the repository |
 
-```yaml
-pre-commit:
-  commands:
-    lint:
-      run: eslint {staged_files}
-    fmt:
-      run: prettier --write {staged_files}
+```toml
+[pre-commit.commands.lint]
+run = "eslint {staged_files}"
 
-pre-push:
-  commands:
-    test:
-      run: cargo test {push_files}
+[pre-commit.commands.fmt]
+run = "prettier --write {staged_files}"
+
+[pre-push.commands.test]
+run = "cargo test {push_files}"
 ```
 
 When a placeholder expands to an empty file list, the command is automatically skipped. If the expanded command exceeds the OS argument length limit, it is automatically split into batches.
@@ -156,22 +148,19 @@ When a placeholder expands to an empty file list, the command is automatically s
 
 Use `glob` and `exclude` to filter which files a command applies to:
 
-```yaml
-pre-commit:
-  commands:
-    lint-js:
-      run: eslint {staged_files}
-      glob: "*.{js,ts}"
-      exclude: "*.min.js"
-    lint-rs:
-      run: cargo clippy
-      glob: "*.rs"
-    fmt:
-      run: prettier --write {staged_files}
-      glob:
-        - "*.js"
-        - "*.ts"
-        - "*.css"
+```toml
+[pre-commit.commands.lint-js]
+run = "eslint {staged_files}"
+glob = "*.{js,ts}"
+exclude = "*.min.js"
+
+[pre-commit.commands.lint-rs]
+run = "cargo clippy"
+glob = "*.rs"
+
+[pre-commit.commands.fmt]
+run = "prettier --write {staged_files}"
+glob = ["*.js", "*.ts", "*.css"]
 ```
 
 Both `glob` and `exclude` accept a single pattern or a list of patterns. Patterns without a `/` match files in any directory (e.g., `*.rs` matches `src/main.rs`).
@@ -184,23 +173,24 @@ When `glob` is set without a file placeholder, monk checks staged files against 
 
 For monorepos with multiple modules or mixed technologies:
 
-```yaml
-pre-commit:
-  paths:
-    "frontend/":
-      commands:
-        lint:
-          run: npm run lint
-        test:
-          run: npm test
-      working_directory: frontend
-    "backend/":
-      commands:
-        fmt:
-          run: cargo fmt -- --check
-        clippy:
-          run: cargo clippy -- -D warnings
-      working_directory: backend
+```toml
+[pre-commit.paths."frontend/"]
+working_directory = "frontend"
+
+[pre-commit.paths."frontend/".commands.lint]
+run = "npm run lint"
+
+[pre-commit.paths."frontend/".commands.test]
+run = "npm test"
+
+[pre-commit.paths."backend/"]
+working_directory = "backend"
+
+[pre-commit.paths."backend/".commands.fmt]
+run = "cargo fmt -- --check"
+
+[pre-commit.paths."backend/".commands.clippy]
+run = "cargo clippy -- -D warnings"
 ```
 
 When using `monk run --changed-only` (the default for installed hooks), only hooks whose path prefix matches the changed files will run.
@@ -209,43 +199,45 @@ When using `monk run --changed-only` (the default for installed hooks), only hoo
 
 Set `working_directory` at the hook level or the command level. Command-level overrides hook-level:
 
-```yaml
-pre-commit:
-  commands:
-    frontend-lint:
-      run: npm run lint
-      working_directory: frontend
-    backend-test:
-      run: cargo test
-      working_directory: backend
+```toml
+[pre-commit.commands.frontend-lint]
+run = "npm run lint"
+working_directory = "frontend"
+
+[pre-commit.commands.backend-test]
+run = "cargo test"
+working_directory = "backend"
 ```
 
 Or at the hook level for all commands:
 
-```yaml
-pre-commit:
-  commands:
-    fmt:
-      run: cargo fmt -- --check
-    test:
-      run: cargo test
-  working_directory: backend
+```toml
+[pre-commit]
+working_directory = "backend"
+
+[pre-commit.commands.fmt]
+run = "cargo fmt -- --check"
+
+[pre-commit.commands.test]
+run = "cargo test"
 ```
 
 #### Parallel Execution
 
 Run all commands in a hook concurrently with `parallel: true`:
 
-```yaml
-pre-commit:
-  parallel: true
-  commands:
-    fmt:
-      run: cargo fmt -- --check
-    clippy:
-      run: cargo clippy -- -D warnings
-    test:
-      run: cargo test
+```toml
+[pre-commit]
+parallel = true
+
+[pre-commit.commands.fmt]
+run = "cargo fmt -- --check"
+
+[pre-commit.commands.clippy]
+run = "cargo clippy -- -D warnings"
+
+[pre-commit.commands.test]
+run = "cargo test"
 ```
 
 All commands run simultaneously and their output is buffered. A summary with pass/fail status and timing is printed after all commands finish. If any command fails, the hook fails.
@@ -254,36 +246,39 @@ All commands run simultaneously and their output is buffered. A summary with pas
 
 Run commands sequentially in priority order with `piped: true`:
 
-```yaml
-pre-commit:
-  piped: true
-  commands:
-    install:
-      run: npm install
-      priority: 1
-    lint:
-      run: eslint .
-      priority: 2
-    test:
-      run: npm test
-      priority: 3
+```toml
+[pre-commit]
+piped = true
+
+[pre-commit.commands.install]
+run = "npm install"
+priority = 1
+
+[pre-commit.commands.lint]
+run = "eslint ."
+priority = 2
+
+[pre-commit.commands.test]
+run = "npm test"
+priority = 3
 ```
 
 Commands are sorted by `priority` (lower number runs first). Commands without `priority` run after prioritized ones, in their original definition order. If any command fails, execution stops and the hook fails.
 
 Add `follow: true` to continue running all commands even when one fails:
 
-```yaml
-post-merge:
-  piped: true
-  follow: true
-  commands:
-    bundle:
-      run: bundle install
-      priority: 1
-    migrate:
-      run: bundle exec rails db:migrate
-      priority: 2
+```toml
+[post-merge]
+piped = true
+follow = true
+
+[post-merge.commands.bundle]
+run = "bundle install"
+priority = 1
+
+[post-merge.commands.migrate]
+run = "bundle exec rails db:migrate"
+priority = 2
 ```
 
 With `follow: true`, all commands run regardless of failures and a summary with pass/fail status is printed at the end. If any command failed, the hook fails.
@@ -294,29 +289,24 @@ When both `piped` and `parallel` are set, `piped` takes precedence.
 
 Skip hooks or individual commands based on git state, branch, or shell conditions:
 
-```yaml
-pre-commit:
-  skip:
-    - merge
-    - rebase
-  commands:
-    fmt:
-      run: cargo fmt -- --check
-    slow-test:
-      run: cargo test --all
-      skip:
-        - run: "test -n \"$CI\""
+```toml
+[pre-commit]
+skip = ["merge", "rebase"]
 
-pre-push:
-  commands:
-    deploy:
-      run: ./deploy.sh
-      skip:
-        - ref: main
-    test:
-      run: cargo test
-      skip:
-        - ref: "release/*"
+[pre-commit.commands.fmt]
+run = "cargo fmt -- --check"
+
+[pre-commit.commands.slow-test]
+run = "cargo test --all"
+skip = [{ run = 'test -n "$CI"' }]
+
+[pre-push.commands.deploy]
+run = "./deploy.sh"
+skip = [{ ref = "main" }]
+
+[pre-push.commands.test]
+run = "cargo test"
+skip = [{ ref = "release/*" }]
 ```
 
 | Condition | Skips when |
@@ -334,12 +324,10 @@ To disable all hooks globally, set the environment variable `MONK=0`.
 
 Mark a hook or command as `required` to make it ignore `MONK=0` and its own `skip` conditions:
 
-```yaml
-pre-push:
-  commands:
-    test:
-      run: cargo test
-      required: true
+```toml
+[pre-push.commands.test]
+run = "cargo test"
+required = true
 ```
 
 A `required` command still runs when `MONK=0` is set, and when the global disable is active, only `required` hooks and commands run — everything else is skipped. Setting `required: true` on a hook itself makes the whole hook (including its own `skip` conditions) immune to `MONK=0`.
@@ -350,18 +338,19 @@ This is a client-side convenience, not a security boundary: anyone with shell ac
 
 Set environment variables for specific commands using the `env` key:
 
-```yaml
-pre-commit:
-  commands:
-    lint:
-      run: eslint {staged_files}
-      env:
-        NODE_ENV: production
-        FORCE_COLOR: "1"
-    test:
-      run: cargo test
-      env:
-        RUST_LOG: debug
+```toml
+[pre-commit.commands.lint]
+run = "eslint {staged_files}"
+
+[pre-commit.commands.lint.env]
+NODE_ENV = "production"
+FORCE_COLOR = "1"
+
+[pre-commit.commands.test]
+run = "cargo test"
+
+[pre-commit.commands.test.env]
+RUST_LOG = "debug"
 ```
 
 Environment variables are added to the command's process environment (they augment the inherited environment, not replace it). Each command can have its own set of environment variables.
@@ -370,15 +359,14 @@ Environment variables are added to the command's process environment (they augme
 
 Use the top-level `rc` key to source a shell script before every command:
 
-```yaml
-rc: .monkrc
+```toml
+rc = ".monkrc"
 
-pre-commit:
-  commands:
-    lint:
-      run: eslint .
-    test:
-      run: npm test
+[pre-commit.commands.lint]
+run = "eslint ."
+
+[pre-commit.commands.test]
+run = "npm test"
 ```
 
 The RC file is sourced via `. <path> && <command>` (POSIX-compatible dot-source). This is useful for shell-managed toolchains like nvm, rbenv, or pyenv that require shell initialization before tools are available.
@@ -387,20 +375,20 @@ The `rc` path is relative to the project root. RC also applies to `skip: run:` s
 
 #### Local Config Overrides
 
-Create a `monk-local.yaml` file (add it to `.gitignore`) to override or extend your project's `monk.yaml` without affecting teammates:
+Create a `monk-local.toml` file (add it to `.gitignore`) to override or extend your project's `monk.toml` without affecting teammates:
 
-```yaml
-pre-commit:
-  parallel: true
-  commands:
-    clippy:
-      run: cargo clippy
-    mycheck:
-      run: ./my-local-check.sh
+```toml
+[pre-commit]
+parallel = true
 
-pre-push:
-  skip:
-    - ref: main
+[pre-commit.commands.clippy]
+run = "cargo clippy"
+
+[pre-commit.commands.mycheck]
+run = "./my-local-check.sh"
+
+[pre-push]
+skip = [{ ref = "main" }]
 ```
 
 Merge rules:
@@ -410,34 +398,12 @@ Merge rules:
 - **Skip conditions**: local replaces base (not concatenated).
 - **Different hook variants** (Simple vs PathBased): local replaces base entirely.
 
-If `monk-local.yaml` does not exist, `monk.yaml` is used as-is. Local configs also support TOML format (`monk-local.toml`). Main and local configs can use different formats.
-
-#### TOML Configuration
-
-Monk supports TOML as an alternative to YAML. Create a `monk.toml` file instead of `monk.yaml`:
-
-```toml
-[pre-commit]
-parallel = true
-
-[pre-commit.commands.fmt]
-run = "cargo fmt -- --check"
-glob = ["*.rs"]
-
-[pre-commit.commands.clippy]
-run = "cargo clippy -- -D warnings"
-
-[pre-push.commands.test]
-run = "cargo test"
-skip = ["merge"]
-```
-
-Monk searches for config files in this order: `monk.yaml`, `monk.toml`. The first one found is used. The same applies to local overrides: `monk-local.yaml`, `monk-local.toml`.
+If `monk-local.toml` does not exist, `monk.toml` is used as-is.
 
 #### CLI
 
 ```sh
-monk install       # Install hooks defined in monk.yaml
+monk install       # Install hooks defined in monk.toml
 monk run <hook>    # Run a hook manually (e.g., monk run pre-commit)
 monk uninstall     # Remove hooks and restore backups
 ```
