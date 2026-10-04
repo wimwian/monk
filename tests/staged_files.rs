@@ -2,15 +2,14 @@ use monk::*;
 
 #[test]
 fn test_config_with_staged_files_placeholder() {
-    let yaml = r#"
-pre-commit:
-  commands:
-    lint:
-      run: eslint {staged_files}
-    fmt:
-      run: prettier --write {staged_files}
+    let toml = r#"
+[pre-commit.commands.lint]
+run = "eslint {staged_files}"
+
+[pre-commit.commands.fmt]
+run = "prettier --write {staged_files}"
 "#;
-    let config: Config = serde_yaml::from_str(yaml).unwrap();
+    let config: Config = toml::from_str(toml).unwrap();
     let hooks = find_all_path_configs(&config, "pre-commit");
     assert_eq!(hooks.len(), 1);
     assert_eq!(hooks[0].commands.len(), 2);
@@ -24,13 +23,11 @@ pre-commit:
 
 #[test]
 fn test_config_with_push_files_placeholder() {
-    let yaml = r#"
-pre-push:
-  commands:
-    test:
-      run: cargo test {push_files}
+    let toml = r#"
+[pre-push.commands.test]
+run = "cargo test {push_files}"
 "#;
-    let config: Config = serde_yaml::from_str(yaml).unwrap();
+    let config: Config = toml::from_str(toml).unwrap();
     let hooks = find_all_path_configs(&config, "pre-push");
     assert_eq!(hooks.len(), 1);
     assert_eq!(
@@ -41,13 +38,11 @@ pre-push:
 
 #[test]
 fn test_config_with_all_files_placeholder() {
-    let yaml = r#"
-pre-commit:
-  commands:
-    check:
-      run: eslint {all_files}
+    let toml = r#"
+[pre-commit.commands.check]
+run = "eslint {all_files}"
 "#;
-    let config: Config = serde_yaml::from_str(yaml).unwrap();
+    let config: Config = toml::from_str(toml).unwrap();
     let hooks = find_all_path_configs(&config, "pre-commit");
     assert_eq!(
         hooks[0].commands.get("check").unwrap().run,
@@ -57,17 +52,17 @@ pre-commit:
 
 #[test]
 fn test_config_mixed_placeholders_and_plain() {
-    let yaml = r#"
-pre-commit:
-  commands:
-    fmt:
-      run: cargo fmt -- --check
-    lint:
-      run: eslint {staged_files}
-    clippy:
-      run: cargo clippy -- -D warnings
+    let toml = r#"
+[pre-commit.commands.fmt]
+run = "cargo fmt -- --check"
+
+[pre-commit.commands.lint]
+run = "eslint {staged_files}"
+
+[pre-commit.commands.clippy]
+run = "cargo clippy -- -D warnings"
 "#;
-    let config: Config = serde_yaml::from_str(yaml).unwrap();
+    let config: Config = toml::from_str(toml).unwrap();
     let hooks = find_all_path_configs(&config, "pre-commit");
     assert_eq!(hooks[0].commands.len(), 3);
 
@@ -103,19 +98,14 @@ fn test_expand_all_files_returns_populated_list() {
 
 #[test]
 fn test_path_based_with_placeholders() {
-    let yaml = r#"
-pre-commit:
-  paths:
-    "frontend/":
-      commands:
-        lint:
-          run: eslint {staged_files}
-    "backend/":
-      commands:
-        fmt:
-          run: cargo fmt {staged_files}
+    let toml = r#"
+[pre-commit.paths."frontend/".commands.lint]
+run = "eslint {staged_files}"
+
+[pre-commit.paths."backend/".commands.fmt]
+run = "cargo fmt {staged_files}"
 "#;
-    let config: Config = serde_yaml::from_str(yaml).unwrap();
+    let config: Config = toml::from_str(toml).unwrap();
     let hooks = find_all_path_configs(&config, "pre-commit");
     assert_eq!(hooks.len(), 2);
 
