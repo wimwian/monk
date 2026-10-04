@@ -1,22 +1,19 @@
 use monk::*;
 
-fn merge(base_yaml: &str, local_yaml: &str) -> Config {
-    merge_yaml_configs(base_yaml, local_yaml).unwrap()
+fn merge(base_toml: &str, local_toml: &str) -> Config {
+    merge_toml_configs(base_toml, local_toml).unwrap()
 }
 
 #[test]
 fn test_local_adds_skip_to_existing_hook() {
     let merged = merge(
         r#"
-pre-push:
-  commands:
-    test:
-      run: cargo test
+[pre-push.commands.test]
+run = "cargo test"
 "#,
         r#"
-pre-push:
-  skip:
-    - ref: main
+[pre-push]
+skip = [{ ref = "main" }]
 "#,
     );
     let hooks = find_all_path_configs(&merged, "pre-push");
@@ -29,20 +26,18 @@ pre-push:
 fn test_local_overrides_and_adds_commands() {
     let merged = merge(
         r#"
-pre-commit:
-  commands:
-    fmt:
-      run: cargo fmt -- --check
-    clippy:
-      run: cargo clippy -- -D warnings
+[pre-commit.commands.fmt]
+run = "cargo fmt -- --check"
+
+[pre-commit.commands.clippy]
+run = "cargo clippy -- -D warnings"
 "#,
         r#"
-pre-commit:
-  commands:
-    clippy:
-      run: cargo clippy
-    mycheck:
-      run: ./check.sh
+[pre-commit.commands.clippy]
+run = "cargo clippy"
+
+[pre-commit.commands.mycheck]
+run = "./check.sh"
 "#,
     );
     let hooks = find_all_path_configs(&merged, "pre-commit");
@@ -59,16 +54,15 @@ pre-commit:
 fn test_local_enables_parallel() {
     let merged = merge(
         r#"
-pre-commit:
-  commands:
-    fmt:
-      run: cargo fmt
-    clippy:
-      run: cargo clippy
+[pre-commit.commands.fmt]
+run = "cargo fmt"
+
+[pre-commit.commands.clippy]
+run = "cargo clippy"
 "#,
         r#"
-pre-commit:
-  parallel: true
+[pre-commit]
+parallel = true
 "#,
     );
     let hooks = find_all_path_configs(&merged, "pre-commit");
@@ -80,16 +74,12 @@ pre-commit:
 fn test_local_adds_new_hook() {
     let merged = merge(
         r#"
-pre-commit:
-  commands:
-    fmt:
-      run: cargo fmt
+[pre-commit.commands.fmt]
+run = "cargo fmt"
 "#,
         r#"
-commit-msg:
-  commands:
-    lint:
-      run: commitlint --edit
+[commit-msg.commands.lint]
+run = "commitlint --edit"
 "#,
     );
     assert_eq!(merged.hooks.len(), 2);
@@ -104,18 +94,15 @@ commit-msg:
 fn test_local_base_only_hooks_preserved() {
     let merged = merge(
         r#"
-pre-commit:
-  commands:
-    fmt:
-      run: cargo fmt
-pre-push:
-  commands:
-    test:
-      run: cargo test
+[pre-commit.commands.fmt]
+run = "cargo fmt"
+
+[pre-push.commands.test]
+run = "cargo test"
 "#,
         r#"
-pre-commit:
-  parallel: true
+[pre-commit]
+parallel = true
 "#,
     );
     assert_eq!(merged.hooks.len(), 2);
@@ -130,20 +117,14 @@ pre-commit:
 fn test_local_command_override_replaces_glob() {
     let merged = merge(
         r#"
-pre-commit:
-  commands:
-    lint:
-      run: eslint {staged_files}
-      glob: "*.js"
+[pre-commit.commands.lint]
+run = "eslint {staged_files}"
+glob = "*.js"
 "#,
         r#"
-pre-commit:
-  commands:
-    lint:
-      run: eslint {staged_files}
-      glob:
-        - "*.js"
-        - "*.ts"
+[pre-commit.commands.lint]
+run = "eslint {staged_files}"
+glob = ["*.js", "*.ts"]
 "#,
     );
     let hooks = find_all_path_configs(&merged, "pre-commit");
@@ -155,18 +136,16 @@ pre-commit:
 fn test_local_only_scalars_no_commands_key() {
     let merged = merge(
         r#"
-pre-commit:
-  commands:
-    fmt:
-      run: cargo fmt
-    clippy:
-      run: cargo clippy
+[pre-commit.commands.fmt]
+run = "cargo fmt"
+
+[pre-commit.commands.clippy]
+run = "cargo clippy"
 "#,
         r#"
-pre-commit:
-  parallel: true
-  skip:
-    - merge
+[pre-commit]
+parallel = true
+skip = ["merge"]
 "#,
     );
     let hooks = find_all_path_configs(&merged, "pre-commit");
@@ -181,14 +160,12 @@ pre-commit:
 fn test_local_working_directory_override() {
     let merged = merge(
         r#"
-pre-commit:
-  commands:
-    test:
-      run: cargo test
+[pre-commit.commands.test]
+run = "cargo test"
 "#,
         r#"
-pre-commit:
-  working_directory: backend
+[pre-commit]
+working_directory = "backend"
 "#,
     );
     let hooks = find_all_path_configs(&merged, "pre-commit");
