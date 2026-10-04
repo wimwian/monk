@@ -62,25 +62,6 @@ In this case, `monk` will be installed automatically and will initialize all hoo
 .
 This is the most convenient option for Rust projects, as it doesn't require contributors to install `monk` manually.
 
-#### Installing monk with Nix
-
-You can also install `monk` using Nix:
-
-```sh
-nix profile install github:daynin/monk
-```
-
-#### Installing monk with Guix
-
-You can install `monk` using GNU Guix directly from GitHub:
-
-```sh
-# Install latest version from main branch
-guix package -f <(curl -s https://raw.githubusercontent.com/daynin/monk/main/monk.scm)
-```
-
-Note: This will automatically fetch and build the latest version from the main branch.
-
 
 ### Usage
 
