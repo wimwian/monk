@@ -2,27 +2,20 @@ use monk::*;
 
 #[test]
 fn test_multiple_rust_submodules() {
-    let yaml = r#"
-pre-commit:
-  paths:
-    "api/":
-      commands:
-        - cargo fmt -- --check
-        - cargo clippy -- -D warnings
-      working_directory: "api"
-    "worker/":
-      commands:
-        - cargo fmt -- --check
-        - cargo clippy -- -D warnings
-        - cargo test
-      working_directory: "worker"
-    "shared/":
-      commands:
-        - cargo fmt -- --check
-        - cargo clippy -- -D warnings
-      working_directory: "shared"
+    let toml = r#"
+[pre-commit.paths."api/"]
+commands = ["cargo fmt -- --check", "cargo clippy -- -D warnings"]
+working_directory = "api"
+
+[pre-commit.paths."worker/"]
+commands = ["cargo fmt -- --check", "cargo clippy -- -D warnings", "cargo test"]
+working_directory = "worker"
+
+[pre-commit.paths."shared/"]
+commands = ["cargo fmt -- --check", "cargo clippy -- -D warnings"]
+working_directory = "shared"
 "#;
-    let config: Config = serde_yaml::from_str(yaml).unwrap();
+    let config: Config = toml::from_str(toml).unwrap();
 
     let api_files = vec!["api/src/main.rs".to_string()];
     let hooks = find_matching_path_configs(&config, "pre-commit", &api_files);
