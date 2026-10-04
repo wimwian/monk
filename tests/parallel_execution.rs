@@ -2,18 +2,20 @@ use monk::*;
 
 #[test]
 fn test_config_parallel_parses() {
-    let yaml = r#"
-pre-commit:
-  parallel: true
-  commands:
-    fmt:
-      run: cargo fmt -- --check
-    clippy:
-      run: cargo clippy -- -D warnings
-    test:
-      run: cargo test
+    let toml = r#"
+[pre-commit]
+parallel = true
+
+[pre-commit.commands.fmt]
+run = "cargo fmt -- --check"
+
+[pre-commit.commands.clippy]
+run = "cargo clippy -- -D warnings"
+
+[pre-commit.commands.test]
+run = "cargo test"
 "#;
-    let config: Config = serde_yaml::from_str(yaml).unwrap();
+    let config: Config = toml::from_str(toml).unwrap();
     let hooks = find_all_path_configs(&config, "pre-commit");
     assert_eq!(hooks.len(), 1);
     assert!(hooks[0].parallel);
@@ -22,27 +24,23 @@ pre-commit:
 
 #[test]
 fn test_config_parallel_backward_compat() {
-    let yaml = r#"
-pre-commit:
-  commands:
-    fmt:
-      run: cargo fmt -- --check
+    let toml = r#"
+[pre-commit.commands.fmt]
+run = "cargo fmt -- --check"
 "#;
-    let config: Config = serde_yaml::from_str(yaml).unwrap();
+    let config: Config = toml::from_str(toml).unwrap();
     let hooks = find_all_path_configs(&config, "pre-commit");
     assert!(!hooks[0].parallel);
 }
 
 #[test]
 fn test_config_parallel_legacy_format() {
-    let yaml = r#"
-pre-commit:
-  parallel: true
-  commands:
-    - cargo fmt
-    - cargo clippy
+    let toml = r#"
+[pre-commit]
+parallel = true
+commands = ["cargo fmt", "cargo clippy"]
 "#;
-    let config: Config = serde_yaml::from_str(yaml).unwrap();
+    let config: Config = toml::from_str(toml).unwrap();
     let hooks = find_all_path_configs(&config, "pre-commit");
     assert!(hooks[0].parallel);
     assert_eq!(hooks[0].commands.len(), 2);
@@ -50,22 +48,20 @@ pre-commit:
 
 #[test]
 fn test_config_parallel_path_based() {
-    let yaml = r#"
-pre-commit:
-  paths:
-    "frontend/":
-      parallel: true
-      commands:
-        lint:
-          run: npm run lint
-        test:
-          run: npm test
-    "backend/":
-      commands:
-        fmt:
-          run: cargo fmt -- --check
+    let toml = r#"
+[pre-commit.paths."frontend/"]
+parallel = true
+
+[pre-commit.paths."frontend/".commands.lint]
+run = "npm run lint"
+
+[pre-commit.paths."frontend/".commands.test]
+run = "npm test"
+
+[pre-commit.paths."backend/".commands.fmt]
+run = "cargo fmt -- --check"
 "#;
-    let config: Config = serde_yaml::from_str(yaml).unwrap();
+    let config: Config = toml::from_str(toml).unwrap();
     let hooks = find_all_path_configs(&config, "pre-commit");
     assert_eq!(hooks.len(), 2);
     assert!(hooks[0].parallel);
@@ -74,18 +70,19 @@ pre-commit:
 
 #[test]
 fn test_config_parallel_with_glob() {
-    let yaml = r#"
-pre-commit:
-  parallel: true
-  commands:
-    lint-js:
-      run: eslint {staged_files}
-      glob: "*.{js,ts}"
-    lint-rs:
-      run: cargo clippy
-      glob: "*.rs"
+    let toml = r#"
+[pre-commit]
+parallel = true
+
+[pre-commit.commands.lint-js]
+run = "eslint {staged_files}"
+glob = "*.{js,ts}"
+
+[pre-commit.commands.lint-rs]
+run = "cargo clippy"
+glob = "*.rs"
 "#;
-    let config: Config = serde_yaml::from_str(yaml).unwrap();
+    let config: Config = toml::from_str(toml).unwrap();
     let hooks = find_all_path_configs(&config, "pre-commit");
     assert!(hooks[0].parallel);
 
