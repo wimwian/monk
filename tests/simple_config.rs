@@ -2,13 +2,11 @@ use monk::*;
 
 #[test]
 fn test_simple_hook_config() {
-    let yaml = r#"
-pre-commit:
-  commands:
-    - cargo fmt
-    - cargo clippy
+    let toml = r#"
+[pre-commit]
+commands = ["cargo fmt", "cargo clippy"]
 "#;
-    let config: Config = serde_yaml::from_str(yaml).unwrap();
+    let config: Config = toml::from_str(toml).unwrap();
     assert!(config.hooks.contains_key("pre-commit"));
 
     let changed_files = vec!["src/main.rs".to_string()];
