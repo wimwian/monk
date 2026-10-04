@@ -2,20 +2,17 @@ use monk::*;
 
 #[test]
 fn test_config_with_glob_parses() {
-    let yaml = r#"
-pre-commit:
-  commands:
-    lint:
-      run: eslint {staged_files}
-      glob: "*.{js,ts}"
-    fmt:
-      run: prettier --write {staged_files}
-      glob:
-        - "*.js"
-        - "*.css"
-      exclude: "*.min.js"
+    let toml = r#"
+[pre-commit.commands.lint]
+run = "eslint {staged_files}"
+glob = "*.{js,ts}"
+
+[pre-commit.commands.fmt]
+run = "prettier --write {staged_files}"
+glob = ["*.js", "*.css"]
+exclude = "*.min.js"
 "#;
-    let config: Config = serde_yaml::from_str(yaml).unwrap();
+    let config: Config = toml::from_str(toml).unwrap();
     let hooks = find_all_path_configs(&config, "pre-commit");
     assert_eq!(hooks.len(), 1);
 
@@ -32,21 +29,16 @@ pre-commit:
 
 #[test]
 fn test_config_glob_with_path_based() {
-    let yaml = r#"
-pre-commit:
-  paths:
-    "frontend/":
-      commands:
-        lint:
-          run: eslint {staged_files}
-          glob: "*.{js,ts}"
-    "backend/":
-      commands:
-        fmt:
-          run: cargo fmt {staged_files}
-          glob: "*.rs"
+    let toml = r#"
+[pre-commit.paths."frontend/".commands.lint]
+run = "eslint {staged_files}"
+glob = "*.{js,ts}"
+
+[pre-commit.paths."backend/".commands.fmt]
+run = "cargo fmt {staged_files}"
+glob = "*.rs"
 "#;
-    let config: Config = serde_yaml::from_str(yaml).unwrap();
+    let config: Config = toml::from_str(toml).unwrap();
     let hooks = find_all_path_configs(&config, "pre-commit");
     assert_eq!(hooks.len(), 2);
 
@@ -59,13 +51,11 @@ pre-commit:
 
 #[test]
 fn test_config_glob_backward_compat() {
-    let yaml = r#"
-pre-commit:
-  commands:
-    - cargo fmt -- --check
-    - cargo clippy -- -D warnings
+    let toml = r#"
+[pre-commit]
+commands = ["cargo fmt -- --check", "cargo clippy -- -D warnings"]
 "#;
-    let config: Config = serde_yaml::from_str(yaml).unwrap();
+    let config: Config = toml::from_str(toml).unwrap();
     let hooks = find_all_path_configs(&config, "pre-commit");
     assert_eq!(hooks.len(), 1);
 
