@@ -2,15 +2,16 @@ use monk::*;
 
 #[test]
 fn test_piped_config_parsing() {
-    let config: Config = serde_yaml::from_str(
+    let config: Config = toml::from_str(
         r#"
-pre-commit:
-  piped: true
-  commands:
-    fmt:
-      run: cargo fmt -- --check
-    clippy:
-      run: cargo clippy
+[pre-commit]
+piped = true
+
+[pre-commit.commands.fmt]
+run = "cargo fmt -- --check"
+
+[pre-commit.commands.clippy]
+run = "cargo clippy"
 "#,
     )
     .unwrap();
@@ -25,16 +26,17 @@ pre-commit:
 
 #[test]
 fn test_piped_with_follow() {
-    let config: Config = serde_yaml::from_str(
+    let config: Config = toml::from_str(
         r#"
-pre-commit:
-  piped: true
-  follow: true
-  commands:
-    fmt:
-      run: cargo fmt -- --check
-    test:
-      run: cargo test
+[pre-commit]
+piped = true
+follow = true
+
+[pre-commit.commands.fmt]
+run = "cargo fmt -- --check"
+
+[pre-commit.commands.test]
+run = "cargo test"
 "#,
     )
     .unwrap();
@@ -46,20 +48,22 @@ pre-commit:
 
 #[test]
 fn test_piped_with_priority() {
-    let config: Config = serde_yaml::from_str(
+    let config: Config = toml::from_str(
         r#"
-pre-commit:
-  piped: true
-  commands:
-    install:
-      run: npm install
-      priority: 1
-    lint:
-      run: eslint .
-      priority: 2
-    test:
-      run: npm test
-      priority: 3
+[pre-commit]
+piped = true
+
+[pre-commit.commands.install]
+run = "npm install"
+priority = 1
+
+[pre-commit.commands.lint]
+run = "eslint ."
+priority = 2
+
+[pre-commit.commands.test]
+run = "npm test"
+priority = 3
 "#,
     )
     .unwrap();
@@ -73,16 +77,15 @@ pre-commit:
 
 #[test]
 fn test_priority_without_piped() {
-    let config: Config = serde_yaml::from_str(
+    let config: Config = toml::from_str(
         r#"
-pre-commit:
-  commands:
-    lint:
-      run: eslint .
-      priority: 2
-    fmt:
-      run: prettier --write .
-      priority: 1
+[pre-commit.commands.lint]
+run = "eslint ."
+priority = 2
+
+[pre-commit.commands.fmt]
+run = "prettier --write ."
+priority = 1
 "#,
     )
     .unwrap();
@@ -95,12 +98,10 @@ pre-commit:
 
 #[test]
 fn test_piped_defaults_to_false() {
-    let config: Config = serde_yaml::from_str(
+    let config: Config = toml::from_str(
         r#"
-pre-commit:
-  commands:
-    fmt:
-      run: cargo fmt
+[pre-commit.commands.fmt]
+run = "cargo fmt"
 "#,
     )
     .unwrap();
@@ -111,7 +112,7 @@ pre-commit:
 }
 
 #[test]
-fn test_piped_in_toml() {
+fn test_piped_priority_minimal() {
     let config = parse_toml_config(
         r#"
 [pre-commit]
@@ -135,7 +136,7 @@ priority = 2
 }
 
 #[test]
-fn test_piped_with_follow_in_toml() {
+fn test_piped_follow_minimal() {
     let config = parse_toml_config(
         r#"
 [post-merge]
@@ -160,20 +161,20 @@ priority = 2
 
 #[test]
 fn test_piped_with_skip_and_glob() {
-    let config: Config = serde_yaml::from_str(
+    let config: Config = toml::from_str(
         r#"
-pre-commit:
-  piped: true
-  skip:
-    - merge
-  commands:
-    lint:
-      run: eslint {staged_files}
-      glob: "*.js"
-      priority: 1
-    test:
-      run: cargo test
-      priority: 2
+[pre-commit]
+piped = true
+skip = ["merge"]
+
+[pre-commit.commands.lint]
+run = "eslint {staged_files}"
+glob = "*.js"
+priority = 1
+
+[pre-commit.commands.test]
+run = "cargo test"
+priority = 2
 "#,
     )
     .unwrap();
@@ -188,29 +189,30 @@ pre-commit:
 
 #[test]
 fn test_piped_path_based() {
-    let config: Config = serde_yaml::from_str(
+    let config: Config = toml::from_str(
         r#"
-pre-commit:
-  paths:
-    "frontend/":
-      piped: true
-      follow: true
-      commands:
-        install:
-          run: npm install
-          priority: 1
-        lint:
-          run: npm run lint
-          priority: 2
-    "backend/":
-      piped: true
-      commands:
-        fmt:
-          run: cargo fmt
-          priority: 1
-        test:
-          run: cargo test
-          priority: 2
+[pre-commit.paths."frontend/"]
+piped = true
+follow = true
+
+[pre-commit.paths."frontend/".commands.install]
+run = "npm install"
+priority = 1
+
+[pre-commit.paths."frontend/".commands.lint]
+run = "npm run lint"
+priority = 2
+
+[pre-commit.paths."backend/"]
+piped = true
+
+[pre-commit.paths."backend/".commands.fmt]
+run = "cargo fmt"
+priority = 1
+
+[pre-commit.paths."backend/".commands.test]
+run = "cargo test"
+priority = 2
 "#,
     )
     .unwrap();
