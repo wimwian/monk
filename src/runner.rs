@@ -794,52 +794,51 @@ mod tests {
 
     #[test]
     fn test_hook_is_required_false_by_default() {
-        let yaml = r#"
-commands:
-  fmt:
-    run: cargo fmt -- --check
+        let toml = r#"
+[commands.fmt]
+run = "cargo fmt -- --check"
 "#;
-        let hook: Hook = serde_yaml::from_str(yaml).unwrap();
+        let hook: Hook = toml::from_str(toml).unwrap();
         assert!(!hook_is_required(&hook));
     }
 
     #[test]
     fn test_hook_is_required_via_hook_flag() {
-        let yaml = r#"
-required: true
-commands:
-  fmt:
-    run: cargo fmt -- --check
+        let toml = r#"
+required = true
+
+[commands.fmt]
+run = "cargo fmt -- --check"
 "#;
-        let hook: Hook = serde_yaml::from_str(yaml).unwrap();
+        let hook: Hook = toml::from_str(toml).unwrap();
         assert!(hook_is_required(&hook));
     }
 
     #[test]
     fn test_hook_is_required_via_command_flag() {
-        let yaml = r#"
-commands:
-  fmt:
-    run: cargo fmt -- --check
-    required: true
-  clippy:
-    run: cargo clippy -- -D warnings
+        let toml = r#"
+[commands.fmt]
+run = "cargo fmt -- --check"
+required = true
+
+[commands.clippy]
+run = "cargo clippy -- -D warnings"
 "#;
-        let hook: Hook = serde_yaml::from_str(yaml).unwrap();
+        let hook: Hook = toml::from_str(toml).unwrap();
         assert!(hook_is_required(&hook));
     }
 
     #[test]
     fn test_prepare_commands_skips_non_required_when_monk_disabled() {
-        let yaml = r#"
-commands:
-  fmt:
-    run: cargo fmt -- --check
-  test:
-    run: cargo test
-    required: true
+        let toml = r#"
+[commands.fmt]
+run = "cargo fmt -- --check"
+
+[commands.test]
+run = "cargo test"
+required = true
 "#;
-        let hook: Hook = serde_yaml::from_str(yaml).unwrap();
+        let hook: Hook = toml::from_str(toml).unwrap();
         let prepared = prepare_commands(&hook, None, true);
         assert_eq!(prepared.len(), 1);
         assert_eq!(prepared[0].command_name, "test");
@@ -847,30 +846,28 @@ commands:
 
     #[test]
     fn test_prepare_commands_runs_all_when_monk_enabled() {
-        let yaml = r#"
-commands:
-  fmt:
-    run: cargo fmt -- --check
-  test:
-    run: cargo test
-    required: true
+        let toml = r#"
+[commands.fmt]
+run = "cargo fmt -- --check"
+
+[commands.test]
+run = "cargo test"
+required = true
 "#;
-        let hook: Hook = serde_yaml::from_str(yaml).unwrap();
+        let hook: Hook = toml::from_str(toml).unwrap();
         let prepared = prepare_commands(&hook, None, false);
         assert_eq!(prepared.len(), 2);
     }
 
     #[test]
     fn test_prepare_commands_required_command_ignores_own_skip() {
-        let yaml = r#"
-commands:
-  test:
-    run: cargo test
-    required: true
-    skip:
-      - run: "true"
+        let toml = r#"
+[commands.test]
+run = "cargo test"
+required = true
+skip = [{ run = "true" }]
 "#;
-        let hook: Hook = serde_yaml::from_str(yaml).unwrap();
+        let hook: Hook = toml::from_str(toml).unwrap();
         let prepared = prepare_commands(&hook, None, false);
         assert_eq!(prepared.len(), 1);
         assert_eq!(prepared[0].command_name, "test");
