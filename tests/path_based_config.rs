@@ -2,20 +2,15 @@ use monk::*;
 
 #[test]
 fn test_path_based_hook_config() {
-    let yaml = r#"
-pre-commit:
-  paths:
-    "frontend/":
-      commands:
-        - npm run lint
-        - npm test
-    "backend/":
-      commands:
-        - cargo fmt -- --check
-        - cargo clippy
-      working_directory: "backend"
+    let toml = r#"
+[pre-commit.paths."frontend/"]
+commands = ["npm run lint", "npm test"]
+
+[pre-commit.paths."backend/"]
+commands = ["cargo fmt -- --check", "cargo clippy"]
+working_directory = "backend"
 "#;
-    let config: Config = serde_yaml::from_str(yaml).unwrap();
+    let config: Config = toml::from_str(toml).unwrap();
 
     let frontend_files = vec!["frontend/src/App.js".to_string()];
     let hooks = find_matching_path_configs(&config, "pre-commit", &frontend_files);
@@ -44,14 +39,11 @@ pre-commit:
 
 #[test]
 fn test_no_matching_paths() {
-    let yaml = r#"
-pre-commit:
-  paths:
-    "frontend/":
-      commands:
-        - npm run lint
+    let toml = r#"
+[pre-commit.paths."frontend/"]
+commands = ["npm run lint"]
 "#;
-    let config: Config = serde_yaml::from_str(yaml).unwrap();
+    let config: Config = toml::from_str(toml).unwrap();
 
     let unrelated_files = vec!["docs/README.md".to_string()];
     let hooks = find_matching_path_configs(&config, "pre-commit", &unrelated_files);
