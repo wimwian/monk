@@ -31,7 +31,7 @@ pub fn main() {
             eprintln!("   {}", format!("Error: {}", e).yellow());
             eprintln!(
                 "   {}",
-                "Create a monk.yaml or monk.toml file in your project root.".yellow()
+                "Create a monk.toml file in your project root.".yellow()
             );
             std::process::exit(1);
         }
